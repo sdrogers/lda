@@ -475,7 +475,10 @@ class VariationalLDA(object):
 		g_term = (psi(self.gamma_matrix) - psi(self.gamma_matrix.sum(axis=1))[:,None]).sum(axis=0)
 		for it in range(maxit):
 			grad = M *(psi(alpha.sum()) - psi(alpha)) + g_term
-			H = -M*np.diag(pg(1,alpha)) + M*pg(1,alpha.sum())
+			h = -M * pg(1,alpha)
+			z = M*pg(1,alpha.sum())
+			H = np.diag(h) + z
+			H_inverse = self.hessian_inverse(h, z)
 			alpha_new = alpha - np.dot(np.linalg.inv(H),grad)
 			if (alpha_new < 0).sum() > 0:
 				init_alpha /= 10.0
@@ -486,6 +489,19 @@ class VariationalLDA(object):
 			if diff < 1e-6 and it > 1:
 				return alpha
 		return alpha
+
+	def hessian_inverse(self, h, z):
+		"""
+        Hessian inversion for optimising the LDA implementation (Blei 2003). 
+		"""
+		z_inverse = 1 / z
+		diag_h_inverse = np.diag(1 / h)
+
+		# Matrix inversion lemma (Minka 2000).
+		H_inverse = diag_h_inverse - \
+			((diag_h_inverse * diag_h_inverse) / \
+			(z_inverse + diag_h_inverse))	
+		return H_inverse
 
 	# TODO: tidy up and comment this function
 	def e_step(self):
